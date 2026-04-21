@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1066932898469",
+    "project_id": "resq-app-40ddd",
+    "storage_bucket": "resq-app-40ddd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1066932898469:android:e57fdafa59a5e7a41a1b4c",
+        "android_client_info": {
+          "package_name": "com.uxonauts.resqadmin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBHAV8l1Knbv422LUVKX5aQulzZL1qK3Y4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1066932898469:android:c7e64be63f706d871a1b4c",
+        "android_client_info": {
+          "package_name": "com.uxonauts.resqadmin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBHAV8l1Knbv422LUVKX5aQulzZL1qK3Y4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
