@@ -36,9 +36,11 @@ class PetugasProfileController : ViewModel() {
     var editAlamat by mutableStateOf("")
     var editInstansi by mutableStateOf("")
     var editNip by mutableStateOf("")
+
     var laporanHariIniCount by mutableStateOf(0)
     var totalLaporanCount by mutableStateOf(0)
     var responseRatePercent by mutableStateOf(0)
+
     private var sosTotalCount = 0
     private var sosTodayCount = 0
     private var sosCompletedCount = 0
@@ -48,10 +50,10 @@ class PetugasProfileController : ViewModel() {
 
     private var sosListener: ListenerRegistration? = null
     private var laporanListener: ListenerRegistration? = null
+    private var petugasRole: Int = 0
 
     init {
         fetchProfile()
-        startStatsListeners()
     }
 
     fun fetchProfile() {
@@ -67,6 +69,10 @@ class PetugasProfileController : ViewModel() {
                     editAlamat = it.alamat
                     editInstansi = it.instansi
                     editNip = it.nip
+                    petugasRole = it.role
+
+                    // Start listeners SETELAH role diketahui
+                    startStatsListeners()
                 }
             } catch (e: Exception) {
                 errorMessage = e.localizedMessage
@@ -76,15 +82,9 @@ class PetugasProfileController : ViewModel() {
         }
     }
 
-    /**
-     * Mulai realtime listener untuk menghitung stats.
-     * Stats = SOS (yang di-accept petugas ini) + Laporan non-darurat (yang di-accept petugas ini).
-     *
-     * Setiap kali ada perubahan di database (laporan baru, status berubah jadi Selesai, dll),
-     * angka di UI akan otomatis ter-update tanpa perlu refresh.
-     */
     private fun startStatsListeners() {
         val uid = auth.currentUser?.uid ?: return
+
         val startOfToday = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
@@ -92,21 +92,37 @@ class PetugasProfileController : ViewModel() {
             set(Calendar.MILLISECOND, 0)
         }.time
         val startOfTodayTs = Timestamp(startOfToday)
+
+        // Listener SOS — query by targetRoles (yang sudah punya index),
+        // lalu filter lokal untuk yang respondingPetugas mengandung uid saya
         sosListener = db.collection("sos_alerts")
-            .whereEqualTo("acceptedBy", uid)
+            .whereArrayContains("targetRoles", petugasRole)
             .addSnapshotListener { snapshot, error ->
                 if (error != null || snapshot == null) return@addSnapshotListener
 
-                sosTotalCount = snapshot.size()
-                sosTodayCount = snapshot.documents.count { doc ->
+                // Filter: hanya hitung SOS yang SAYA sudah respond
+                val myAlerts = snapshot.documents.filter { doc ->
+                    @Suppress("UNCHECKED_CAST")
+                    val respMap = doc.get("respondingPetugas") as? Map<String, Any>
+                    respMap?.containsKey(uid) == true
+                }
+
+                sosTotalCount = myAlerts.size
+                sosTodayCount = myAlerts.count { doc ->
                     val ts = doc.getTimestamp("timestamp")
                     ts != null && ts >= startOfTodayTs
                 }
-                sosCompletedCount = snapshot.documents.count { doc ->
-                    doc.getString("status") == "completed"
+                sosCompletedCount = myAlerts.count { doc ->
+                    // Cek status individual saya di respondingPetugas
+                    @Suppress("UNCHECKED_CAST")
+                    val respMap = doc.get("respondingPetugas") as? Map<String, Map<String, Any>>
+                    val myData = respMap?.get(uid)
+                    (myData?.get("status") as? String) == "completed"
                 }
                 recalculateStats()
             }
+
+        // Listener Laporan non-darurat — masih pakai acceptedBy (tidak berubah)
         laporanListener = db.collection("reports")
             .whereEqualTo("acceptedBy", uid)
             .addSnapshotListener { snapshot, error ->
@@ -124,9 +140,6 @@ class PetugasProfileController : ViewModel() {
             }
     }
 
-    /**
-     * Gabungkan angka SOS + laporan, lalu update state yang dipakai UI.
-     */
     private fun recalculateStats() {
         laporanHariIniCount = sosTodayCount + laporanTodayCount
         totalLaporanCount = sosTotalCount + laporanTotalCount
